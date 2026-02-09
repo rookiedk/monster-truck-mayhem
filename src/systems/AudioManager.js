@@ -21,8 +21,11 @@ export class AudioManager {
   // ===================== PROCEDURAL CHIPTUNE MUSIC =====================
   startMusic(levelId = 1) {
     if (!this.enabled) return;
+    this.resume();
+    this.stopMusic();
+
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.08;
+    this.musicGain.gain.value = 0.55;
     this.musicGain.connect(this.masterGain);
 
     const patterns = {
@@ -48,10 +51,16 @@ export class AudioManager {
 
     const p = patterns[levelId] || patterns[1];
     let step = 0;
+    this._musicStarted = false;
 
     this.musicInterval = setInterval(() => {
       if (!this.enabled || !this.ctx || this.ctx.state === 'closed') {
         clearInterval(this.musicInterval);
+        return;
+      }
+      // Wait for the AudioContext to actually be running before scheduling notes
+      if (this.ctx.state === 'suspended') {
+        this.resume();
         return;
       }
       const now = this.ctx.currentTime;
@@ -62,7 +71,7 @@ export class AudioManager {
       osc.type = p.wave;
       osc.frequency.setValueAtTime(p.notes[step % p.notes.length], now);
       const g = this.ctx.createGain();
-      g.gain.setValueAtTime(0.06, now);
+      g.gain.setValueAtTime(0.35, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.9);
       osc.connect(g); g.connect(this.musicGain);
       osc.start(now); osc.stop(now + dur);
@@ -72,10 +81,10 @@ export class AudioManager {
       bass.type = 'sawtooth';
       bass.frequency.setValueAtTime(p.bass[step % p.bass.length], now);
       const bg = this.ctx.createGain();
-      bg.gain.setValueAtTime(0.04, now);
+      bg.gain.setValueAtTime(0.25, now);
       bg.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.8);
       const bf = this.ctx.createBiquadFilter();
-      bf.type = 'lowpass'; bf.frequency.value = 200;
+      bf.type = 'lowpass'; bf.frequency.value = 300;
       bass.connect(bf); bf.connect(bg); bg.connect(this.musicGain);
       bass.start(now); bass.stop(now + dur);
 
@@ -87,25 +96,25 @@ export class AudioManager {
         for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
         noise.buffer = noiseBuf;
         const ng = this.ctx.createGain();
-        ng.gain.setValueAtTime(0.08, now);
-        ng.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        ng.gain.setValueAtTime(0.4, now);
+        ng.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
         noise.connect(ng); ng.connect(this.musicGain);
-        noise.start(now); noise.stop(now + 0.05);
+        noise.start(now); noise.stop(now + 0.06);
       }
       // Hi-hat (every 2 steps)
       if (step % 2 === 0) {
         const hh = this.ctx.createBufferSource();
-        const hhBuf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * 0.02), this.ctx.sampleRate);
+        const hhBuf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * 0.025), this.ctx.sampleRate);
         const hhd = hhBuf.getChannelData(0);
         for (let i = 0; i < hhd.length; i++) hhd[i] = (Math.random() * 2 - 1) * (1 - i / hhd.length);
         hh.buffer = hhBuf;
         const hhg = this.ctx.createGain();
-        hhg.gain.setValueAtTime(0.03, now);
-        hhg.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+        hhg.gain.setValueAtTime(0.15, now);
+        hhg.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
         const hhf = this.ctx.createBiquadFilter();
-        hhf.type = 'highpass'; hhf.frequency.value = 8000;
+        hhf.type = 'highpass'; hhf.frequency.value = 7000;
         hh.connect(hhf); hhf.connect(hhg); hhg.connect(this.musicGain);
-        hh.start(now); hh.stop(now + 0.02);
+        hh.start(now); hh.stop(now + 0.025);
       }
 
       step++;
