@@ -673,6 +673,7 @@ export class GameScene extends Phaser.Scene {
     // Save score and challenge unlocks
     this.saveBestScore();
     const newPalettes = this.challengeManager.saveUnlocks();
+    const allUnlocked = ChallengeManager.checkAllUnlocked();
 
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'LEVEL COMPLETE!', {
       fontFamily: 'monospace', fontSize: '44px', color: '#44ff44', stroke: '#000', strokeThickness: 6
@@ -686,6 +687,7 @@ export class GameScene extends Phaser.Scene {
         stars: this.levelCfg.stars,
         challenges: this.challengeManager.getChallenges(),
         newPalettes,
+        allUnlocked,
       });
     });
   }

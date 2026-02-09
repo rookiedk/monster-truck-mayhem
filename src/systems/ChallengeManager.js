@@ -115,6 +115,29 @@ export class ChallengeManager {
     } catch (e) { console.warn('Failed to save palette selection', e); }
   }
 
+  /**
+   * Check if every lockable palette has been unlocked.
+   */
+  static checkAllUnlocked() {
+    const unlocked = ChallengeManager.getUnlockedPalettes();
+    const allKeys = Object.keys(PALETTES);
+    return allKeys.every(k => unlocked.includes(k));
+  }
+
+  /**
+   * Reset all game progress — prestige / new game+.
+   * Locks levels 2 & 3, clears scores, locks all palettes except DEFAULT,
+   * resets selected palette to DEFAULT.
+   */
+  static resetProgress() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.UNLOCKED_LEVELS, JSON.stringify([1]));
+      localStorage.setItem(STORAGE_KEYS.BEST_SCORES, JSON.stringify({}));
+      localStorage.setItem(STORAGE_KEYS.UNLOCKED_PALETTES, JSON.stringify(['DEFAULT']));
+      localStorage.setItem(STORAGE_KEYS.SELECTED_PALETTE, 'DEFAULT');
+    } catch (e) { console.warn('Failed to reset progress', e); }
+  }
+
   getChallenges() {
     return this.challenges;
   }

@@ -1,4 +1,7 @@
 import Phaser from 'phaser';
+import { ChallengeManager } from '../systems/ChallengeManager.js';
+
+const GAME_VERSION = '1.2';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -109,6 +112,9 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    // Ensure clean initial state on first run or version upgrade
+    this.initStorage();
+
     this.registry.set('loadedAssets', this.loadedAssets);
     this.createTruckBodyTexture();
     this.createWheelTexture();
@@ -120,6 +126,20 @@ export class BootScene extends Phaser.Scene {
     this.createCharacterAnimations();
     this.createDustAnimation();
     this.scene.start('MenuScene');
+  }
+
+  /**
+   * On first run (or version upgrade), reset all progress so the game
+   * starts fresh: only Level 1 unlocked, only the DEFAULT palette available.
+   */
+  initStorage() {
+    try {
+      const stored = localStorage.getItem('mtm-version');
+      if (stored !== GAME_VERSION) {
+        ChallengeManager.resetProgress();
+        localStorage.setItem('mtm-version', GAME_VERSION);
+      }
+    } catch (e) { console.warn('Storage init failed', e); }
   }
 
   // ====================== EXPLOSION ANIMATIONS ======================

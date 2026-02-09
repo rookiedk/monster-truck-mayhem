@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, PALETTES } from '../utils/constants.js';
+import { ChallengeManager } from '../systems/ChallengeManager.js';
 
 export class ScoreScene extends Phaser.Scene {
   constructor() {
@@ -13,9 +14,15 @@ export class ScoreScene extends Phaser.Scene {
     this.starThresholds = data.stars || { ONE_STAR: 2000, TWO_STARS: 6000, THREE_STARS: 12000 };
     this.challenges = data.challenges || [];
     this.newPalettes = data.newPalettes || [];
+    this.allUnlocked = data.allUnlocked || false;
   }
 
   create() {
+    // If all palettes unlocked, show prestige screen instead
+    if (this.allUnlocked) {
+      this.showPrestigeScreen();
+      return;
+    }
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a15);
 
     // Title
@@ -186,5 +193,137 @@ export class ScoreScene extends Phaser.Scene {
       else this.scene.start('MenuScene');
     });
     this.input.keyboard.on('keydown-ESC', () => this.scene.start('MenuScene'));
+  }
+
+  // ======================== PRESTIGE / NEW GAME+ ========================
+  showPrestigeScreen() {
+    // Dark background
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x050510);
+
+    // Animated background particles — golden celebration
+    for (let i = 0; i < 60; i++) {
+      const px = Phaser.Math.Between(0, GAME_WIDTH);
+      const py = Phaser.Math.Between(0, GAME_HEIGHT);
+      const size = Phaser.Math.FloatBetween(1, 3);
+      const color = Phaser.Utils.Array.GetRandom([0xffdd00, 0xffaa00, 0xff8800, 0xffffff, 0xcc44ff]);
+      const p = this.add.circle(px, py, size, color, 0).setDepth(1);
+      this.tweens.add({
+        targets: p,
+        alpha: Phaser.Math.FloatBetween(0.3, 0.8),
+        y: py - Phaser.Math.Between(50, 200),
+        duration: Phaser.Math.Between(2000, 5000),
+        yoyo: true, repeat: -1,
+        delay: Phaser.Math.Between(0, 2000),
+      });
+    }
+
+    // Crown / trophy glow
+    const glow = this.add.graphics().setDepth(2).setAlpha(0);
+    glow.fillStyle(0xffaa00, 0.08);
+    glow.fillEllipse(GAME_WIDTH / 2, 180, 500, 200);
+    glow.fillStyle(0xffdd00, 0.05);
+    glow.fillEllipse(GAME_WIDTH / 2, 180, 600, 260);
+    this.tweens.add({ targets: glow, alpha: 1, duration: 1500 });
+    this.tweens.add({
+      targets: glow, scaleX: 1.05, scaleY: 1.08,
+      duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+
+    // Big title
+    const t1 = this.add.text(GAME_WIDTH / 2, 120, 'ALL PALETTES', {
+      fontFamily: 'monospace', fontSize: '42px', color: '#ffdd00',
+      stroke: '#442200', strokeThickness: 8
+    }).setOrigin(0.5).setDepth(10).setAlpha(0).setScale(0.5);
+
+    const t2 = this.add.text(GAME_WIDTH / 2, 175, 'UNLOCKED!', {
+      fontFamily: 'monospace', fontSize: '56px', color: '#ffaa00',
+      stroke: '#441100', strokeThickness: 8
+    }).setOrigin(0.5).setDepth(10).setAlpha(0).setScale(0.5);
+
+    this.tweens.add({ targets: t1, alpha: 1, scale: 1, duration: 800, delay: 300, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: t2, alpha: 1, scale: 1, duration: 800, delay: 600, ease: 'Back.easeOut' });
+
+    // Gentle float
+    this.tweens.add({ targets: t1, y: 117, duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: t2, y: 172, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 300 });
+
+    // Congratulations message
+    const msg1 = this.add.text(GAME_WIDTH / 2, 260, 'You have collected every truck palette.', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#ccaa88',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(10).setAlpha(0);
+
+    const msg2 = this.add.text(GAME_WIDTH / 2, 290, 'The game will now reset for a new challenge!', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#ccaa88',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(10).setAlpha(0);
+
+    this.tweens.add({ targets: msg1, alpha: 1, duration: 500, delay: 1200 });
+    this.tweens.add({ targets: msg2, alpha: 1, duration: 500, delay: 1500 });
+
+    // What gets reset
+    const resetInfo = [
+      'Levels 2 & 3 will be locked again',
+      'All palettes locked except Classic Red',
+      'Best scores cleared',
+      'Challenges refreshed',
+    ];
+
+    resetInfo.forEach((text, i) => {
+      const ri = this.add.text(GAME_WIDTH / 2, 340 + i * 28, '- ' + text, {
+        fontFamily: 'monospace', fontSize: '13px', color: '#887766',
+        stroke: '#000', strokeThickness: 1
+      }).setOrigin(0.5).setDepth(10).setAlpha(0);
+      this.tweens.add({ targets: ri, alpha: 1, duration: 300, delay: 2000 + i * 150 });
+    });
+
+    // Score from this run
+    const scoreText = this.add.text(GAME_WIDTH / 2, 470, `Final Score: ${this.stats.score || 0}`, {
+      fontFamily: 'monospace', fontSize: '18px', color: '#ffff00',
+      stroke: '#000', strokeThickness: 3
+    }).setOrigin(0.5).setDepth(10).setAlpha(0);
+    this.tweens.add({ targets: scoreText, alpha: 1, duration: 400, delay: 2800 });
+
+    // "NEW GAME" button — performs the reset
+    const btnDelay = 3500;
+    const resetBtn = this.add.text(GAME_WIDTH / 2, 540, '[ START NEW GAME ]', {
+      fontFamily: 'monospace', fontSize: '24px', color: '#ffaa00',
+      stroke: '#000', strokeThickness: 4
+    }).setOrigin(0.5).setDepth(10).setAlpha(0).setInteractive({ useHandCursor: true });
+
+    this.tweens.add({ targets: resetBtn, alpha: 1, duration: 500, delay: btnDelay });
+    this.tweens.add({
+      targets: resetBtn, scaleX: 1.06, scaleY: 1.06,
+      duration: 600, yoyo: true, repeat: -1, delay: btnDelay + 600,
+    });
+
+    resetBtn.on('pointerover', () => resetBtn.setColor('#ffffff'));
+    resetBtn.on('pointerout', () => resetBtn.setColor('#ffaa00'));
+    resetBtn.on('pointerdown', () => {
+      // Perform the reset
+      ChallengeManager.resetProgress();
+
+      // Flash white and transition to menu
+      const flash = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0xffffff, 0)
+        .setDepth(999);
+      this.tweens.add({
+        targets: flash, alpha: 1, duration: 500,
+        onComplete: () => {
+          this.scene.start('MenuScene');
+        }
+      });
+    });
+
+    // Also allow Enter key
+    this.input.keyboard.on('keydown-ENTER', () => {
+      ChallengeManager.resetProgress();
+      this.scene.start('MenuScene');
+    });
+
+    // ESC goes to menu without resetting (safety)
+    this.input.keyboard.on('keydown-ESC', () => {
+      ChallengeManager.resetProgress();
+      this.scene.start('MenuScene');
+    });
   }
 }
